@@ -31,7 +31,7 @@ class formathtml(ABC):
             for a in attr.split(" "):
                 if joinb4:
                     vals.append(a)
-                    if a.strip()[-1] == "\"":
+                    if len(a)>1 and a.strip()[-1] == "\"":
                         val = " ".join(vals)
                         val = re.sub("^\"", "", val)
                         val = re.sub("\"$", "", val)
@@ -45,7 +45,7 @@ class formathtml(ABC):
                         rtn.update({key: True})
                     else:
                         val = keys[1].strip()
-                        if val[-1] == "\"" and val not in (" ", "\""):
+                        if len(val)>1 and val[-1] == "\"" and val not in (" ", "\""):
                             val = re.sub("^\"", "", val)
                             val = re.sub("\"$", "", val)
                             rtn.update({key: val})

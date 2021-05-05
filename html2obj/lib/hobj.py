@@ -1,7 +1,7 @@
 from abc import ABC
 
 class hobj(ABC):
-    cols: tuple = ("_attr", "_text")
+    cols: tuple = ("_attr", "_text", "_i")
 
     def __init__(self, rec: dict):
         for k, v in rec.items():
@@ -29,6 +29,8 @@ class hobj(ABC):
         vals = self.getattr(name, [])
         if not(isinstance(vals, list)):
             vals = [vals]
+        # if name !="_elem":
+        #     val.__setattr__("_i",len(vals)+1)
         vals.append(val)
         if forcelist:
             vals = list(set(vals))
@@ -41,16 +43,18 @@ class hobj(ABC):
     def concat(self, name, val):
         vals = self.getattr(name, "")
         if isinstance(val, list):
-            vals += "".join(val)
+            vals += " ".join(val)
         else:
-            vals += val
+            vals += " "+val
         if vals != "":
-            self.__setattr__(name, vals)
+            self.__setattr__(name, vals.strip())
 
     def addchild(self, child):
         ctag = child._name
         self.append(name="_elem", val=ctag)
         self.append(name=ctag, val=child, forcelist=False)
+        if ctag=="script":
+            return
         try:
             self.concat(name="_text", val=child._text)
         except:

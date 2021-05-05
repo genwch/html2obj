@@ -59,7 +59,7 @@ class html2obj(ABC):
                 continue
             idx = o.get("_idx")
             level = o.get("_level")
-            xpath = [t.get("_tag") for t in obj if t.get("_idx")
+            xpath = ["{}[*]".format(t.get("_tag")) for t in obj if t.get("_idx")
                      < idx and t.get("_eidx", -1) > idx and t.get("_level") < level]
             if xpath == []:
                 continue
@@ -68,7 +68,79 @@ class html2obj(ABC):
         self.fullxpath = rtn
         return rtn
 
-    def get_xpath(self, xpath: str, obj=None) -> list:
+    def get_xpath(self, xpath: str, obj=None)-> list:
+        def __splitxp(xpath: str):
+            import re
+            txp=xpath.split("[", 1)
+            xp=txp[0]
+            idx="*"
+            opt=[]
+            attr=""
+            attrval=""
+            if len(txp)>1:
+                opt=txp[1].split("]")[0].split("=", 1)
+                if len(opt)==1:
+                    idx=opt[0]
+                else:
+                    attr=opt[0]
+                    attr=re.sub("^@", "", attr)
+                    attrval=opt[1]
+                    for l in ("^\"", "\"$", "^'", "'$"):
+                        attrval=re.sub(l, "", attrval).strip()
+            return xp, idx, attr, attrval
+
+        def __get_obj(xp: str, obj: list, isfull: bool):
+            rtn=[]
+            xp, idx, attr, attrval = __splitxp(xp)
+            if xp=="":
+                return obj, isfull
+            if isfull:
+                if xp not in ("", "*"):
+                    for o in obj:
+                        t=o.getattr(xp, [])
+                        if isinstance(t, list):
+                            rtn+=t
+                        else:
+                            rtn.append(t)
+                    if attr!="":
+                        obj=rtn.copy()
+                        rtn=[]
+                        for o in obj:
+                            for k, v in o.getattr("_attr", {}).items():
+                                if k==attr and (attrval in v.split(" ") or attrval==v):
+                                    rtn.append(o)
+                    else:
+                        if idx!="*":
+                            idx=int(idx)-1
+                            # print("get idx", xp, idx, len(rtn))
+                            try:
+                                rtn=[rtn[idx]]
+                            except:
+                                print("! not found")
+            else:
+                for o in self.fullxpath:
+                    if xp!="*":
+                        if xp!=o.get("_tag", ""):
+                            continue
+                    for k, v in o.get("_attr", {}).items():
+                        if k==attr and attrval in v.split(" "):
+                            xpath="/{}/{}[@{}=\"{}\"]".format(o.get("_xpath", ""), xp, k, v)
+                            rtn+=self.get_xpath(xpath)
+            # print(xp, idx, attr, attrval, len(rtn))
+            return rtn, True
+        xpath=xpath.split("/")[1:]
+        rtn=[self] if obj==None else obj.copy()
+        isfull=True
+        for i, xp in enumerate(xpath):
+            if i==0 and xp=="":
+                isfull=False
+            rtn, isfull=__get_obj(xp, rtn, isfull)
+            # print(i, xp, len(rtn))
+            if rtn==[]:
+                break
+        return rtn
+
+    def oget_xpath(self, xpath: str, obj=None) -> list:
         def is_integer(n):
             try:
                 float(n)
@@ -90,16 +162,18 @@ class html2obj(ABC):
             if xpath == "":
                 return None, idx, attr
             if is_integer(opt):
-                idx = int(opt)-1
+                idx = int(opt)
             elif opt == "*":
                 idx = -1
             else:
                 attrs = opt.split("=", 1)
+                key=attrs[0]
+                key = re.sub("^@", "", key)
                 tattr = attrs[1]
                 for l in ("^\"", "\"$", "^'", "'$"):
                     tattr = re.sub(l, "", tattr)
                 if len(attrs) > 1:
-                    attr.update({attrs[0]: tattr})
+                    attr.update({key: tattr})
             return xpath, idx, attr
 
         def __getobj(obj, xp: str, attr: dict, fullpath: bool):
@@ -113,17 +187,19 @@ class html2obj(ABC):
                             continue
                     attrs = p.get("_attr", {})
                     for k, v in attr.items():
-                        if v in attrs.get(k, None).split(" "):
-                            nxp = "/{}/{}[{}]".format(p.get("_xpath"),
-                                                      p.get("_tag"), f"{k}='{v}'")
+                        aval=attrs.get(k, None)
+                        if aval != None and v in aval.split(" "):
+                            nxp = "/{}/{}[@{}]".format(p.get("_xpath"),
+                                                    p.get("_tag"), f"{k}='{v}'")
                             if not(fullpath):
                                 rtn = self.get_xpath(xpath=nxp)
                             else:
                                 rtn = obj.getattr(p.get("_tag"), None)
+                                # rtn = [o.getattr(p.get("_tag"), None) for o in obj]
             elif xp == "":
                 pass
             else:
-                rtn = obj.getattr(xp, None)
+                rtn = [o.getattr(xp, None) for o in obj]
             return rtn
 
         rtn = []
@@ -138,23 +214,27 @@ class html2obj(ABC):
             if xp == "":
                 continue
             obj = __getobj(obj, xp, attr, fullpath=isfullpath)
-
             if obj == None or obj == []:
                 break
+            if not(isinstance(obj, list)):
+                obj=[obj]
             if i == len(xpath)-1:
-                if isinstance(obj, list):
-                    rtn = [o for o in obj]
-                else:
-                    rtn.append(obj)
+                # print([o.get("_name") for o in obj])
+                rtn = [o for o in obj]
             else:
-                if idx >= 0:
-                    if isinstance(obj, list):
-                        obj = obj[idx]
-                    else:
-                        obj = obj
+                if idx == 0:
+                    obj = obj
+                elif idx>0:
+                    obj = obj[idx-1]
                 else:
                     txp = "/".join(xpath[i:])
-                    return [self.get_xpath(xpath=txp, obj=o)[0] for o in obj]
+                    rtn=[]
+                    for o in obj:
+                        tmp=self.get_xpath(xpath=txp, obj=o)
+                        rtn+=tmp
+                    break
+                    # return rtn
+                    # return [self.get_xpath(xpath=txp, obj=o)[0] for o in obj]
         return rtn
 
     def __str__(self):
