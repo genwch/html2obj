@@ -89,7 +89,7 @@ class extract(ABC):
                                     val = val.get(tv, None)
                             elif tk == "pfx":
                                 val = f"{tv}{val}"
-                    if val != None:
+                    if val != None and val != "":
                         dt.update({k: val})
             if not(skip) and dt != {}:
                 data.append(dt)
@@ -97,7 +97,7 @@ class extract(ABC):
 
     def conv_conf(self, conf: dict, org_conf: dict = {}) -> dict:
         def __nestget(conf: dict, key: str, default: str = "") -> str:
-            rtn = None
+            rtn = default
             for k, v in conf.items():
                 if k == key:
                     rtn = conf.get(k, default)
@@ -105,8 +105,7 @@ class extract(ABC):
                 else:
                     if isinstance(v, dict):
                         rtn = __nestget(v, key, default)
-                        if rtn != None:
-                            break
+                        break
             return rtn
 
         org_conf = conf if org_conf == {} else org_conf
@@ -116,16 +115,14 @@ class extract(ABC):
                 v = self.conv_conf(v, org_conf)
             elif isinstance(v, list):
                 v = [self.conv_conf(o, org_conf) for o in v]
-            elif isinstance(v, str):
+            elif isinstance(v, str) or isinstance(v, int):
                 if v != None:
-                    key = v.split("}}")[:-1]
+                    key = str(v).split("}}")[:-1]
                     # print(v, key)
-                    for ttk in key:
-                        tttk = ttk.split("{{", 1)
-                        if len(tttk) == 1:
+                    for tk in key:
+                        ttk = tk.split("{{", 1)
+                        if len(ttk) == 1:
                             continue
-                        tttk = tttk[1]
-                        v = re.sub("{{%s}}" % (tttk), __nestget(
-                            org_conf, tttk, ""), v)
+                        v = re.sub("{{%s}}" % (ttk[1]), str(__nestget(org_conf, ttk[1], "")), v)
             rtn.update({k: v})
         return rtn
