@@ -7,7 +7,7 @@ class extract(ABC):
     def __init__(self):
         pass
 
-    def extract(self, conf, showexec: bool = False) -> list:
+    def extract(self, conf, obj: list = [], showexec: bool = False) -> list:
         def __extr(conf, obj: list = []):
             rtn = []
             obj = [conf] if obj == [] else obj
@@ -17,7 +17,8 @@ class extract(ABC):
             return rtn
         import timeit
         conf = conf if isinstance(conf, list) else [conf]
-        obj = []
+        obj = obj if isinstance(obj, list) else [obj]        
+        # obj = []
         for i, c in enumerate(conf):
             starttime = timeit.default_timer()
             obj = __extr(c, obj)
