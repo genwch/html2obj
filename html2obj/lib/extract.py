@@ -85,9 +85,12 @@ class extract(ABC):
                             elif tk == "conv_json":
                                 import json
                                 val = json.loads(val)
+                                if isinstance(tv, str):
+                                    val = val.get(tv, None)
                             elif tk == "pfx":
                                 val = f"{tv}{val}"
-                    dt.update({k: val})
+                    if val != None:
+                        dt.update({k: val})
             if not(skip) and dt != {}:
                 data.append(dt)
         return data
