@@ -80,6 +80,9 @@ class extract(ABC):
                                             tmp = int(val)
                                         except:
                                             skip = True
+                                    elif rst=="str":
+                                        if val==None or val == "":
+                                            skip=True
                                 elif fn == "notin":
                                     skip = (val in rst)
                             elif tk == "conv_json":
